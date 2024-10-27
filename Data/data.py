@@ -7,6 +7,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis 
 from sklearn.decomposition import KernelPCA
 from sklearn.pipeline import Pipeline
+from sklearn.metrics import silhouette_score
+from sklearn.metrics import davies_bouldin_score
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib
@@ -55,6 +57,12 @@ class Data:
     if(path !=  None): 
       plt.savefig(path, format='png', bbox_inches='tight', dpi=400) # PNG
     plt.clf()
+    
+    score = silhouette_score(X_r2, y)
+    print(f'Silhouette Score after LDA: {score}')
+    
+    db_index = davies_bouldin_score(X_r2, y)
+    print(f'Davies-Bouldin Index after LDA: {db_index}')
       
   def plot_mds(self, path = None, show = False):    
     euclidean_data = self.__calculate_euclidean_distance()

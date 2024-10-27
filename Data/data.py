@@ -2,8 +2,13 @@ import os
 import json
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-from sklearn.manifold import MDS 
+from sklearn.manifold import MDS
+from sklearn.model_selection import train_test_split
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis 
+from sklearn.decomposition import KernelPCA
+from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 import matplotlib
 matplotlib.use('TkAgg')
 
@@ -14,15 +19,49 @@ class Data:
     self.frames = self.__read_frames()
     self.preprocessed = self.__preprocess_frames()
     self.moves = self.__extract_moves()
+    self.encoded_moves = self.__encode_moves()
     self.flattened_frames = self.__flatten_frames()
-      
-  def plot_mds(self, path = None, show = False):
-    data_classes = set(['up', 'down', 'left', 'right'])
     
+  def plot_lda(self, path = None, show = False):
+    X = self.flattened_frames[:-1] # last frame has no move
+    y = self.encoded_moves
+
+    scaler = MinMaxScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Split into train and test for more realistic scenario (optional)
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    lda = LinearDiscriminantAnalysis(n_components=2)
+    X_r2 = lda.fit_transform(X_scaled, y)
+    
+    # Plot the results
+    plt.figure(figsize=(15, 15))
+
+    target_names = ['up', 'down', 'left', 'right']
+    labels = [0, 1, 2, 3]
+    colors = ['blue', 'green', 'red', 'purple']
+    for color, label in zip(colors, labels):
+        idx = y == label
+        plt.scatter(X_r2[idx, 0], X_r2[idx, 1], color=color, label=target_names[label], alpha=0.7)
+
+    plt.title("LDA Representation of Battlesnake Moves")
+    plt.xlabel("LDA Component 1")
+    plt.ylabel("LDA Component 2")
+    plt.legend(loc="best")
+    
+    if (show):
+      plt.show()
+     
+    if(path !=  None): 
+      plt.savefig(path, format='png', bbox_inches='tight', dpi=400) # PNG
+    plt.clf()
+      
+  def plot_mds(self, path = None, show = False):    
     euclidean_data = self.__calculate_euclidean_distance()
     mds = self.__multi_dim_scaling(euclidean_data)
     
-    fig = plt.figure()
+    fig = plt.figure(figsize=(15,15))
+    # ax = fig.add_subplot(projection='3d')
     ax = fig.add_subplot()
     
     plt.title('MDS Representation of Battlesnake Moves')
@@ -36,6 +75,7 @@ class Data:
         
         # Plot each point with its respective color
         ax.scatter(mds[i, 0], mds[i, 1], color=class_colors[cls], s=10)
+        # ax.scatter(mds[i, 0], mds[i, 1], mds[i,2], color=class_colors[cls], s=10)
         
         # Annotate each point with its index
         ax.annotate(str(i),
@@ -43,6 +83,8 @@ class Data:
                     textcoords="offset points",        # Position relative to the point
                     xytext=(5, 5),                     # Offset of the annotation text
                     ha='center', color='red') 
+        # ax.text(mds[i, 0], mds[i, 1], mds[i, 2], str(i),
+        #     color='red', ha='center')
 
     for cls, color in class_colors.items():
       ax.scatter([], [], color=color, label=cls)
@@ -145,14 +187,60 @@ class Data:
 
     return moves
   
+  def __encode_moves(self):
+    action_map = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
+    return np.array([action_map[move['Move']] for move in self.moves])
+  
   def __flatten_frames(self):
     flattened_frames = []
     for i, frame in enumerate(self.preprocessed):
-      flattened_frames.append(self.__flatten_frame(frame, i+1))
+      flattened_frames.append(self.__flatten_frame_i_to_list(frame, i+1))
       
     return np.array(flattened_frames)
   
-  def __flatten_frame(self, frame, i):
+  def __flatten_frame_i_to_list(self, frame, i):
+    food_positions = [coord for f in frame["food_positions"] for coord in f]
+    player_body = [coord for s in frame["player_body"] for coord in s]
+    enemy_bodies = [coord for b in frame["enemy_body"] for coord in b]
+    turn = [i]
+     # Define the desired length for padding
+    desired_length = 100
+
+    # Function to pad arrays to the desired length
+    def pad_to_length(arr, length):
+        return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
+
+    # Pad each feature array to the desired length
+    turn_padded = pad_to_length(turn, desired_length)
+    food_positions_padded = pad_to_length(food_positions, desired_length)
+    player_body_padded = pad_to_length(player_body, desired_length)
+    enemy_bodies_padded = pad_to_length(enemy_bodies, desired_length)
+
+    # Concatenate all arrays
+    # return np.append(np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded]), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i], axis=0)
+    return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
+  
+  def __flatten_frame_to_list(self, frame, i):
+    food_positions = [coord for f in frame["food_positions"] for coord in f]
+    player_body = [coord for s in frame["player_body"] for coord in s]
+    enemy_bodies = [coord for b in frame["enemy_body"] for coord in b]
+     # Define the desired length for padding
+    desired_length = 100
+
+    # Function to pad arrays to the desired length
+    def pad_to_length(arr, length):
+        return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
+
+    # Pad each feature array to the desired length
+    # turn_padded = pad_to_length(turn, desired_length)
+    food_positions_padded = pad_to_length(food_positions, desired_length)
+    player_body_padded = pad_to_length(player_body, desired_length)
+    enemy_bodies_padded = pad_to_length(enemy_bodies, desired_length)
+
+    # Concatenate all arrays
+    return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
+  
+  def __flatten_frame_to_board(self, frame, i):
     # Convert the board into a flattened array
     board_size = 11  # for an 11x11 board
     grid = np.zeros((board_size, board_size))
@@ -171,9 +259,49 @@ class Data:
 
     # Flatten the grid
     return grid.flatten()
+
+  def __flatten_frame_i_to_board(self, frame, i):
+    # Convert the board into a flattened array
+    board_size = 11  # for an 11x11 board
+    grid = np.zeros((board_size, board_size))
+
+    # Mark snake body positions as -1
+    for segment in frame['player_body']:
+        grid[segment[0], segment[1]] = -1
+    
+    # Mark opponent snakes
+    for segment in frame['enemy_body']:
+        grid[segment[0], segment[1]] = -2
+
+    # Mark food position as 1
+    for food in frame['food_positions']:
+        grid[food[0], food[1]] = 1
+
+    # Flatten the grid
+    return np.append(grid.flatten(), i)
+
+  def __flatten_frame_len_to_board(self, frame, i):
+    # Convert the board into a flattened array
+    board_size = 11  # for an 11x11 board
+    grid = np.zeros((board_size, board_size))
+
+    # Mark snake body positions as -1
+    for segment in frame['player_body']:
+        grid[segment[0], segment[1]] = -1
+    
+    # Mark opponent snakes
+    for segment in frame['enemy_body']:
+        grid[segment[0], segment[1]] = -2
+
+    # Mark food position as 1
+    for food in frame['food_positions']:
+        grid[food[0], food[1]] = 1
+
+    # Flatten the grid
+    return np.append(grid.flatten(), [len(frame['player_body']), len(frame['enemy_body'])*2, len(frame['food_positions'])*-1], axis=0)
   
   def __calculate_euclidean_distance(self):
-    pairwise_distances = pdist(self.flattened_frames, metric='euclidean')
+    pairwise_distances = pdist(self.flattened_frames, metric='seuclidean')
     distance_matrix = squareform(pairwise_distances)
     np.fill_diagonal(distance_matrix, 0)  # Ensuring D(a, a) = 0
     return distance_matrix

@@ -120,12 +120,6 @@ def preprocess_game_data(game_data, snakeID):
 
     return X_train
 
-# Example function to vectorize the data for machine learning
-def vectorize_data(X_train):
-    # Convert to a format suitable for a model (e.g., flatten features, use one-hot encoding for moves)
-    # For now, we just return X_train as is (modify depending on the model)
-    return X_train
-
 # Load the JSON data from the file
 file_path = 'frames.json'  # Replace with your file path
 snakeID = 'gs_kyDB7QyKYDKVjKxQRjj7mG4M'
@@ -136,7 +130,7 @@ moves = extract_moves(game_data, snakeID)
 preprocessed_game_data = preprocess_game_data(game_data, snakeID)[:-1]
 
 # Vectorize data for training
-vectorized_game_data = vectorize_data(preprocessed_game_data)
+vectorized_game_data = preprocessed_game_data
 
 # Example output (you can modify how you store or use this)
 # print("Training Data Features:", vectorized_game_data)

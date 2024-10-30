@@ -64,6 +64,50 @@ class Data:
     db_index = davies_bouldin_score(X_r2, y)
     print(f'Davies-Bouldin Index after LDA: {db_index}')
       
+  def plot_lda_3d(self, path=None, show=False):
+    X = self.flattened_frames[:-1]  # Last frame has no move
+    y = self.encoded_moves
+
+    scaler = MinMaxScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Initialize LDA with 3 components for 3D plotting
+    lda = LinearDiscriminantAnalysis(n_components=3)
+    X_r3 = lda.fit_transform(X_scaled, y)
+    
+    # Create a 3D plot
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(111, projection='3d')
+
+    target_names = ['up', 'down', 'left', 'right']
+    labels = [0, 1, 2, 3]
+    colors = ['blue', 'green', 'red', 'purple']
+    for color, label in zip(colors, labels):
+        idx = y == label
+        ax.scatter(X_r3[idx, 0], X_r3[idx, 1], X_r3[idx, 2], color=color, label=target_names[label], alpha=0.7)
+
+    # Set labels and title
+    ax.set_title("3D LDA Representation of Battlesnake Moves")
+    ax.set_xlabel("LDA Component 1")
+    ax.set_ylabel("LDA Component 2")
+    ax.set_zlabel("LDA Component 3")
+    ax.legend(loc="best")
+    
+    # Show or save the plot
+    if show:
+        plt.show()
+    if path is not None:
+        plt.savefig(path, format='png', bbox_inches='tight', dpi=400)
+    plt.clf()
+    
+    # Calculate and print clustering scores
+    score = silhouette_score(X_r3, y)
+    print(f'Silhouette Score after 3D LDA: {score}')
+    
+    db_index = davies_bouldin_score(X_r3, y)
+    print(f'Davies-Bouldin Index after 3D LDA: {db_index}')
+
+  
   def plot_mds(self, path = None, show = False):    
     euclidean_data = self.__calculate_euclidean_distance()
     mds = self.__multi_dim_scaling(euclidean_data)
@@ -317,3 +361,4 @@ class Data:
   def __multi_dim_scaling(self, data, dim = 2):
     mds = MDS(n_components=dim, random_state=0, dissimilarity='precomputed')  
     return mds.fit_transform(data)
+

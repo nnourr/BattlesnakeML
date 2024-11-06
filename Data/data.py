@@ -175,12 +175,14 @@ class Data:
         # Initialize lists for player and enemy snakes
         player_body = None
         enemy_body = None
+        player_health = None
 
         for snake in snakes:
 
             snake_body = [(s["X"], s["Y"]) for s in snake["Body"]]
             if snake["Author"] == author:
                 player_body = snake_body
+                player_health = snake["Health"]
             else:
                 enemy_body = snake_body
 
@@ -192,7 +194,8 @@ class Data:
             "turn": turn,
             "food_positions": [(f["X"], f["Y"]) for f in food],
             "player_body": player_body,
-            "enemy_body": enemy_body
+            "enemy_body": enemy_body,
+            "health": player_health,
         }
         preprocessed.append(features)
 
@@ -251,25 +254,9 @@ class Data:
     return np.array(flattened_frames)
   
   def __flatten_frame_i_to_list(self, frame, i):
-    food_positions = [coord for f in frame["food_positions"] for coord in f]
-    player_body = [coord for s in frame["player_body"] for coord in s]
-    enemy_bodies = [coord for b in frame["enemy_body"] for coord in b]
-    turn = [i]
-     # Define the desired length for padding
-    desired_length = 100
 
-    # Function to pad arrays to the desired length
-    def pad_to_length(arr, length):
-        return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
-
-    # Pad each feature array to the desired length
-    turn_padded = pad_to_length(turn, desired_length)
-    food_positions_padded = pad_to_length(food_positions, desired_length)
-    player_body_padded = pad_to_length(player_body, desired_length)
-    enemy_bodies_padded = pad_to_length(enemy_bodies, desired_length)
-
-    # Concatenate all arrays
-    return np.append(np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded]), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"])], axis=0)
+    # add length to arrays
+    return np.append(self.__flatten_frame_to_list(frame, i), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i, frame["health"]], axis=0)
     # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
   
   def __flatten_frame_to_list(self, frame, i):

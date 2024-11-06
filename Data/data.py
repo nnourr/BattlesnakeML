@@ -269,8 +269,8 @@ class Data:
     enemy_bodies_padded = pad_to_length(enemy_bodies, desired_length)
 
     # Concatenate all arrays
-    # return np.append(np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded]), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i], axis=0)
-    return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
+    return np.append(np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded]), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"])], axis=0)
+    # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
   
   def __flatten_frame_to_list(self, frame, i):
     food_positions = [coord for f in frame["food_positions"] for coord in f]
@@ -353,7 +353,7 @@ class Data:
     return np.append(grid.flatten(), [len(frame['player_body']), len(frame['enemy_body'])*2, len(frame['food_positions'])*-1], axis=0)
   
   def __calculate_euclidean_distance(self):
-    pairwise_distances = pdist(self.flattened_frames, metric='seuclidean')
+    pairwise_distances = pdist(self.flattened_frames, metric='euclidean')
     distance_matrix = squareform(pairwise_distances)
     np.fill_diagonal(distance_matrix, 0)  # Ensuring D(a, a) = 0
     return distance_matrix

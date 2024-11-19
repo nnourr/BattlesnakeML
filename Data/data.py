@@ -17,24 +17,34 @@ matplotlib.use('TkAgg')
 
 class Data:
   def __init__(self, data_root):
+    self.action_map = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
     self.data_root = data_root
+    
     self.frames = self.__read_frames()
     self.preprocessed = self.__preprocess_frames()
-    self.moves = self.__extract_moves()
-    self.encoded_moves = self.__encode_moves()
     self.flattened_frames = self.__flatten_frames()
     
-  def plot_lda(self, path = None, show = False):
+    self.moves = self.__extract_moves()
+    self.encoded_moves = self.__encode_moves()
+    
+    self.lda_2 = self.n_lda(2)
+    self.lda_3 = self.n_lda(3)
+  
+  def n_lda(self, n):
     X = self.flattened_frames[:-1] # last frame has no move
     y = self.encoded_moves
-
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
+    lda = LinearDiscriminantAnalysis(n_components=n)
+    lda_out = lda.fit_transform(X_scaled, y)
+    return lda_out
+    
+  def plot_lda(self, path = None, show = False):
+    y = self.encoded_moves
 
     # Split into train and test for more realistic scenario (optional)
     # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    lda = LinearDiscriminantAnalysis(n_components=2)
-    X_r2 = lda.fit_transform(X_scaled, y)
+    X_r2 = self.lda_2
     
     # Plot the results
     plt.figure(figsize=(15, 15))
@@ -65,15 +75,10 @@ class Data:
     print(f'Davies-Bouldin Index after LDA: {db_index}')
       
   def plot_lda_3d(self, path=None, show=False):
-    X = self.flattened_frames[:-1]  # Last frame has no move
     y = self.encoded_moves
 
-    scaler = MinMaxScaler()
-    X_scaled = scaler.fit_transform(X)
-
     # Initialize LDA with 3 components for 3D plotting
-    lda = LinearDiscriminantAnalysis(n_components=3)
-    X_r3 = lda.fit_transform(X_scaled, y)
+    X_r3 = self.lda_3
     
     # Create a 3D plot
     fig = plt.figure(figsize=(15, 15))
@@ -153,9 +158,9 @@ class Data:
   
   def __read_frames(self):
     frames = []
-    for item in os.listdir(self.data_root):
-        item_path = os.path.join(self.data_root, item)
-        frames += self.__read_frames_file(item_path)
+    for dirpath, dirnames, filenames in os.walk(self.data_root):
+        if "frames.json" in filenames:
+            frames.extend(self.__read_frames_file(os.path.join(dirpath, "frames.json")))
     return frames
   
   def __read_frames_file(self, file_path):
@@ -243,13 +248,16 @@ class Data:
     return moves
   
   def __encode_moves(self):
-    action_map = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
-    return np.array([action_map[move['Move']] for move in self.moves])
+    return np.array([self.action_map[move['Move']] for move in self.moves])
+  
+  def decode_moves(self, encoded_moves):
+    decoded = self.action_map.keys()
+    return [decoded[move] for move in encoded_moves]
   
   def __flatten_frames(self):
     flattened_frames = []
     for i, frame in enumerate(self.preprocessed):
-      flattened_frames.append(self.__flatten_frame_i_to_list(frame, i+1))
+      flattened_frames.append(self.__flatten_frame_len_to_board(frame, i+1))
       
     return np.array(flattened_frames)
   

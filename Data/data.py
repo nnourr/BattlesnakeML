@@ -112,7 +112,6 @@ class Data:
     db_index = davies_bouldin_score(X_r3, y)
     print(f'Davies-Bouldin Index after 3D LDA: {db_index}')
 
-  
   def plot_mds(self, path = None, show = False):    
     euclidean_data = self.__calculate_euclidean_distance()
     mds = self.__multi_dim_scaling(euclidean_data)
@@ -181,12 +180,14 @@ class Data:
         player_body = None
         enemy_body = None
         player_health = None
+        player_health = None
 
         for snake in snakes:
 
             snake_body = [(s["X"], s["Y"]) for s in snake["Body"]]
             if snake["Author"] == author:
                 player_body = snake_body
+                player_health = snake["Health"]
                 player_health = snake["Health"]
             else:
                 enemy_body = snake_body
@@ -199,6 +200,8 @@ class Data:
             "turn": turn,
             "food_positions": [(f["X"], f["Y"]) for f in food],
             "player_body": player_body,
+            "enemy_body": enemy_body,
+            "health": player_health,
             "enemy_body": enemy_body,
             "health": player_health,
         }
@@ -262,6 +265,10 @@ class Data:
     return np.array(flattened_frames)
   
   def __flatten_frame_i_to_list(self, frame, i):
+
+    # add length to arrays
+    return np.append(self.__flatten_frame_to_list(frame, i), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i, frame["health"]], axis=0)
+    # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
 
     # add length to arrays
     return np.append(self.__flatten_frame_to_list(frame, i), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i, frame["health"]], axis=0)
@@ -347,13 +354,12 @@ class Data:
     # Flatten the grid
     return np.append(grid.flatten(), [len(frame['player_body']), len(frame['enemy_body'])*2, len(frame['food_positions'])*-1], axis=0)
   
-  def __calculate_euclidean_distance(self):
+  def calculate_euclidean_distance(self):
     pairwise_distances = pdist(self.flattened_frames, metric='euclidean')
     distance_matrix = squareform(pairwise_distances)
     np.fill_diagonal(distance_matrix, 0)  # Ensuring D(a, a) = 0
     return distance_matrix
   
-  def __multi_dim_scaling(self, data, dim = 2):
+  def multi_dim_scaling(self, data, dim = 2):
     mds = MDS(n_components=dim, random_state=0, dissimilarity='precomputed')  
     return mds.fit_transform(data)
-

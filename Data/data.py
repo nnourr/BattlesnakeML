@@ -21,17 +21,17 @@ class Data:
     self.data_root = data_root
     
     self.frames = self.__read_frames()
-    self.preprocessed = self.__preprocess_frames()
-    self.flattened_frames = self.__flatten_frames()
-    
+    self.preprocessed = self.preprocess_frames()
     self.moves = self.__extract_moves()
+    
+    self.flattened_frames = self.__flatten_frames()
     self.encoded_moves = self.__encode_moves()
     
     self.lda_2 = self.n_lda(2)
     self.lda_3 = self.n_lda(3)
   
   def n_lda(self, n):
-    X = self.flattened_frames[:-1] # last frame has no move
+    X = self.flattened_frames
     y = self.encoded_moves
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
@@ -52,10 +52,13 @@ class Data:
     
     return frames
   
-  def __preprocess_frames(self, author='coreyja'):
+  def preprocess_frames(self, author='coreyja', frames = None):
     preprocessed = []
 
-    for game_state in self.frames:
+    if frames == None: frames = self.frames
+    self.__new_indexes = [0]
+
+    for i, game_state in enumerate(frames):
         turn = game_state["Turn"]
         food = game_state["Food"]
         food = [(f["X"], f["Y"]) for f in food]
@@ -65,10 +68,11 @@ class Data:
         player_body = None
         enemy_body = None
         player_health = None
-        player_health = None
+        end_frame = False
 
         for snake in snakes:
-
+            if (snake['Death'] != None):
+               end_frame = True
             snake_body = [(s["X"], s["Y"]) for s in snake["Body"]]
             if snake["Author"] == author:
                 player_body = snake_body
@@ -79,6 +83,9 @@ class Data:
 
         if player_body is None:
             continue  # Skip if the player's snake is not found
+
+        if end_frame:
+            self.__new_indexes.append(len(preprocessed))
 
         # Calculate the distance between the player's snake head and the enemy's snake head
         player_head = player_body[0]
@@ -118,6 +125,9 @@ class Data:
     for i, turn_data in enumerate(self.preprocessed):
         player_snake = turn_data['player_body']
 
+        if (i in self.__new_indexes):
+           previous_position = ''
+
         # Get the current snake's head position
         head_position = player_snake[0]
 
@@ -148,6 +158,8 @@ class Data:
         # Update previous position
         previous_position = current_position
 
+    for i, index in enumerate(self.__new_indexes):
+        self.preprocessed.pop(index - (i + 1))
     return moves
   
   def __encode_moves(self):
@@ -167,11 +179,7 @@ class Data:
   def __flatten_frame_i_to_list(self, frame, i):
 
     # add length to arrays
-    return np.append(self.__flatten_frame_to_list(frame, i), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), i, frame["health"]], axis=0)
-    # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
-
-    # add length to arrays
-    return np.append(self.__flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], i], axis=0)
+    return np.append(self.__flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], i, *self.__flatten_frame_to_board(frame)], axis=0)
     # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
   
   def __flatten_frame_to_list(self, frame):
@@ -207,7 +215,7 @@ class Data:
     # Concatenate all arrays
     return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded, player_distance_padded, opp_distance_padded, pairwise_distance_padded, wall_distance_padded, food_distance_padded, valid_spaces])
   
-  def __flatten_frame_to_board(self, frame, i):
+  def __flatten_frame_to_board(self, frame):
     # Convert the board into a flattened array
     board_size = 11  # for an 11x11 board
     grid = np.zeros((board_size, board_size))

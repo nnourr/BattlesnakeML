@@ -12,7 +12,6 @@ from sklearn.metrics import davies_bouldin_score
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib
-matplotlib.use('TkAgg')
 
 
 class Data:
@@ -321,24 +320,41 @@ class Data:
     return np.array([[np.sum(np.abs(np.array(segment) - np.array(food))) for food in foods] for segment in body])
   
   def calculate_valid_moves(self, player, opp, board_size=11):
-      mask = [1, 1, 1, 1]  # Initialize mask for [up, down, left, right]
+    mask = [1, 1, 1, 1]  # Initialize mask for [up, down, left, right]
 
-      head_x, head_y = player[0]  # Get the head position of the player's snake
+    head_x, head_y = player[0]  # Get the head position of the player's snake
 
-      # Check up move
-      if head_y + 1 >= board_size or (head_x, head_y + 1) in player or (head_x, head_y + 1) in opp:
-          mask[0] = 0
+    opp_x, opp_y = opp[0]  # Get the head position of the opponent snake
 
-      # Check down move
-      if head_y - 1 < 0 or (head_x, head_y - 1) in player or (head_x, head_y - 1) in opp:
-          mask[1] = 0
+    # Calculate potential moves for the opponent's head
+    opponent_danger_zone = [
+        (opp_x, opp_y + 1),  # Up
+        (opp_x, opp_y - 1),  # Down
+        (opp_x - 1, opp_y),  # Left
+        (opp_x + 1, opp_y)   # Right
+    ]
 
-      # Check left move
-      if head_x - 1 < 0 or (head_x - 1, head_y) in player or (head_x - 1, head_y) in opp:
-          mask[2] = 0
+    # Filter out moves that are outside the board
+    opponent_danger_zone = [
+        move for move in opponent_danger_zone 
+        if 0 <= move[0] < board_size and 0 <= move[1] < board_size
+    ]
 
-      # Check right move
-      if head_x + 1 >= board_size or (head_x + 1, head_y) in player or (head_x + 1, head_y) in opp:
-          mask[3] = 0
+    # Check up move
+    if head_y + 1 >= board_size or (head_x, head_y + 1) in player or (head_x, head_y + 1) in opp or (head_x, head_y + 1) in opponent_danger_zone:
+        mask[0] = 0
 
-      return mask
+    # Check down move
+    if head_y - 1 < 0 or (head_x, head_y - 1) in player or (head_x, head_y - 1) in opp or (head_x, head_y - 1) in opponent_danger_zone:
+        mask[1] = 0
+
+    # Check left move
+    if head_x - 1 < 0 or (head_x - 1, head_y) in player or (head_x - 1, head_y) in opp or (head_x - 1, head_y) in opponent_danger_zone:
+        mask[2] = 0
+
+    # Check right move
+    if head_x + 1 >= board_size or (head_x + 1, head_y) in player or (head_x + 1, head_y) in opp or (head_x + 1, head_y) in opponent_danger_zone:
+        mask[3] = 0
+
+    return mask
+

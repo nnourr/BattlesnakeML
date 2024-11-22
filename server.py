@@ -3,7 +3,7 @@ from BattlesnakePipeline.battlesnake_pipeline import BattlesnakePipeline
 
 app = Flask(__name__)
 
-HOST = "localhost"
+HOST = "0.0.0.0"
 PORT = 8000
 
 pipeline = BattlesnakePipeline.load('./model_pipeline')
@@ -21,7 +21,7 @@ def snake_metadata():
 
 @app.route("/start", methods=['POST'])
 def start_game():
-    return
+    return ''
   
 @app.route("/move", methods=['POST'])
 def perform_move():

@@ -10,8 +10,8 @@ battlesnake_model.train_SVC()
 
 battlesnake_pipeline = BattlesnakePipeline(data_class, battlesnake_model)
 
-raw_data = {'board':data_class.frames[5], 'you':{'ID':'gs_kyDB7QyKYDKVjKxQRjj7mG4M'}}
+# raw_data = {'board':data_class.frames[5], 'you':{'ID':'gs_kyDB7QyKYDKVjKxQRjj7mG4M'}}
 
-print(battlesnake_pipeline.predict(raw_data))
+# print(battlesnake_pipeline.predict(raw_data))
 
 battlesnake_pipeline.save("./model_pipeline")

@@ -15,7 +15,7 @@ class Model:
     
   def train_SVC(self):
     svc = SVC()
-    # self.__cross_validate(svc)
+    self.__cross_validate(svc)
     self.model = svc.fit(self.data.lda_3, self.data.encoded_moves)
     return svc
     

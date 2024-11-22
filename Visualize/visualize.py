@@ -9,7 +9,7 @@ class Visualize:
         self.data_instance = data_instance
 
     def plot_lda(self, path=None, show=False):
-        X = self.data_instance.flattened_frames[:-1]  # Last frame has no move
+        X = self.data_instance.flattened_frames
         y = self.data_instance.encoded_moves
 
         scaler = MinMaxScaler()
@@ -38,7 +38,7 @@ class Visualize:
         print(f'Davies-Bouldin Index after LDA: {db_index}')
 
     def plot_lda_3d(self, path=None, show=False):
-        X = self.data_instance.flattened_frames[:-1]  # Last frame has no move
+        X = self.data_instance.flattened_frames
         y = self.data_instance.encoded_moves
 
         scaler = MinMaxScaler()

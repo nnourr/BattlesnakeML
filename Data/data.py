@@ -27,15 +27,21 @@ class Data:
     self.flattened_frames = self.__flatten_frames()
     self.encoded_moves = self.__encode_moves()
     
-    self.lda_2 = self.n_lda(2)
+    # self.lda_2 = self.n_lda(2)
     self.lda_3 = self.n_lda(3)
+  
+  def lda_transform(self, X):
+    X_scaled = self.scaler.transform(X)
+    return self.lda.transform(X_scaled)
   
   def n_lda(self, n):
     X = self.flattened_frames
     y = self.encoded_moves
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
+    self.scaler = scaler
     lda = LinearDiscriminantAnalysis(n_components=n)
+    self.lda = lda
     lda_out = lda.fit_transform(X_scaled, y)
     return lda_out
   
@@ -166,23 +172,23 @@ class Data:
     return np.array([self.action_map[move['Move']] for move in self.moves])
   
   def decode_moves(self, encoded_moves):
-    decoded = self.action_map.keys()
+    decoded = list(self.action_map.keys())
     return [decoded[move] for move in encoded_moves]
   
   def __flatten_frames(self):
     flattened_frames = []
     for i, frame in enumerate(self.preprocessed):
-      flattened_frames.append(self.__flatten_frame_i_to_list(frame, i+1))
+      flattened_frames.append(self.flatten_frame_i_to_list(frame))
       
     return np.array(flattened_frames)
   
-  def __flatten_frame_i_to_list(self, frame, i):
+  def flatten_frame_i_to_list(self, frame):
 
     # add length to arrays
-    return np.append(self.__flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], i, *self.__flatten_frame_to_board(frame)], axis=0)
+    return np.append(self.flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], *self.flatten_frame_to_board(frame)], axis=0)
     # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
   
-  def __flatten_frame_to_list(self, frame):
+  def flatten_frame_to_list(self, frame):
     food_positions = [coord for f in frame["food_positions"] for coord in f]
     player_body = [coord for s in frame["player_body"] for coord in s]
     enemy_bodies = [coord for b in frame["enemy_body"] for coord in b]
@@ -215,7 +221,7 @@ class Data:
     # Concatenate all arrays
     return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded, player_distance_padded, opp_distance_padded, pairwise_distance_padded, wall_distance_padded, food_distance_padded, valid_spaces])
   
-  def __flatten_frame_to_board(self, frame):
+  def flatten_frame_to_board(self, frame):
     # Convert the board into a flattened array
     board_size = 11  # for an 11x11 board
     grid = np.zeros((board_size, board_size))

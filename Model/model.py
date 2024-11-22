@@ -15,14 +15,14 @@ class Model:
     
   def train_SVC(self):
     svc = SVC()
-    self.__cross_validate(svc)
-    svc.fit(self.data.lda_3, self.data.encoded_moves)
+    # self.__cross_validate(svc)
+    self.model = svc.fit(self.data.lda_3, self.data.encoded_moves)
     return svc
     
   def train_Decision_Tree(self):
     dtc = DecisionTreeClassifier()
     self.__cross_validate(dtc)
-    dtc.fit(self.data.lda_3, self.data.encoded_moves)
+    self.model = dtc.fit(self.data.lda_3, self.data.encoded_moves)
     return dtc
   
   def train_neural_network(self):
@@ -60,7 +60,20 @@ class Model:
       scores.append(score[1])
       print(f"Fold {fold_no} - Test loss: {score[0]}, Test accuracy: {score[1]}")
       fold_no += 1
-      
+    
+    self.model = Sequential()
+    model.add(Input(shape=(3,)))  # Input shape is (3,) since each sample has 3 features
+    model.add(Dense(256, activation='relu'))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(164, activation='relu'))
+    model.add(Dense(16, activation='relu'))
+    model.add(Dense(4, activation='softmax'))  # Output layer
+
+    # Compile the model
+    model.compile(loss='sparse_categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    model.fit(inputs_train, outputs[train], epochs=10, batch_size=32)
     print("average accuracy = " + str(sum(scores)/len(scores)))
   
   def __cross_validate(self, model):

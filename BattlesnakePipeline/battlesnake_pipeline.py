@@ -67,6 +67,7 @@ class BattlesnakePipeline(BaseEstimator, TransformerMixin):
     player_body = None
     enemy_body = None
     player_health = None
+    enemy_health = None
     
     player_snake_id = raw_data[to_case("you")][to_case("id")]
 
@@ -76,7 +77,7 @@ class BattlesnakePipeline(BaseEstimator, TransformerMixin):
           player_body = snake_body
           player_health = snake[to_case("health")]
           continue
-        
+        enemy_health = snake[to_case("health")]
         enemy_body = snake_body
         
     if enemy_body == None or player_body == None:
@@ -103,6 +104,7 @@ class BattlesnakePipeline(BaseEstimator, TransformerMixin):
         "player_body": player_body,
         "enemy_body": enemy_body,
         "health": player_health,
+        "opp_health": enemy_health,
         "opp_distance": opp_distance,
         "player_distance": player_distance,
         "pairwise_distance": pairwise_distance,

@@ -73,6 +73,7 @@ class Data:
         player_body = None
         enemy_body = None
         player_health = None
+        enemy_health = False
         end_frame = False
 
         for snake in snakes:
@@ -85,6 +86,7 @@ class Data:
                 player_health = snake["Health"]
             else:
                 enemy_body = snake_body
+                enemy_health = snake["Health"]
 
         if player_body is None:
             continue  # Skip if the player's snake is not found
@@ -110,6 +112,7 @@ class Data:
             "player_body": player_body,
             "enemy_body": enemy_body,
             "health": player_health,
+            "opp_health": enemy_health,
             "opp_distance": opp_distance,
             "player_distance": player_distance,
             "pairwise_distance": pairwise_distance,
@@ -185,7 +188,47 @@ class Data:
 
     # add length to arrays
     return np.append(self.flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], *self.flatten_frame_to_board(frame)], axis=0)
-    # return np.concatenate([food_positions_padded, player_body_padded, enemy_bodies_padded])
+  
+  def anti_symmetric_pad(self, array, target_size):
+    """
+    Pads a 1D array to the specified target size using anti-symmetric padding.
+
+    Args:
+        array (numpy.ndarray): The input 1D array.
+        target_size (int): The desired size of the padded array.
+
+    Returns:
+        numpy.ndarray: The anti-symmetrically padded array.
+    """
+    current_size = len(array)
+    
+    if current_size >= target_size:
+        # Truncate if the array is larger than or equal to the target size
+        return array[:target_size]
+    
+    # Calculate the total amount of padding needed
+    total_pad = target_size - current_size
+    left_pad = total_pad // 2
+    right_pad = total_pad - left_pad
+
+    # Handle edge cases for padding
+    left = -np.flip(array[:min(left_pad, current_size)])
+    right = -np.flip(array[-min(right_pad, current_size):])
+
+    # Adjust padding if the array is smaller than the required padding
+    while len(left) < left_pad:
+        left = np.concatenate((left, -np.flip(array[:min(left_pad - len(left), current_size)])))
+    while len(right) < right_pad:
+        right = np.concatenate((right, -np.flip(array[-min(right_pad - len(right), current_size):])))
+
+    # Truncate any extra padding to ensure exact match
+    left = left[-left_pad:]
+    right = right[:right_pad]
+
+    # Concatenate the padded parts with the original array
+    padded_array = np.concatenate((left, array, right))
+    
+    return padded_array
   
   def flatten_frame_to_list(self, frame):
     food_positions = [coord for f in frame["food_positions"] for coord in f]
@@ -203,7 +246,8 @@ class Data:
 
     # Function to pad arrays to the desired length
     def pad_to_length(arr, length):
-        return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
+        # return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
+        return self.anti_symmetric_pad(arr, length)
 
     # Pad each feature array to the desired length
     # turn_padded = pad_to_length(turn, desired_length)
@@ -227,10 +271,12 @@ class Data:
 
     # Mark snake body positions as -1
     for segment in frame['player_body']:
+        if segment[0] >= 11 or segment[1] >= 11: continue
         grid[segment[0], segment[1]] = -1
     
     # Mark opponent snakes
     for segment in frame['enemy_body']:
+        if segment[0] >= 11 or segment[1] >= 11: continue
         grid[segment[0], segment[1]] = -2
 
     # Mark food position as 1

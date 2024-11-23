@@ -386,9 +386,9 @@ class Data:
     np.fill_diagonal(distance_matrix, 0)  # Ensuring D(a, a) = 0
     return distance_matrix
   
-  def multi_dim_scaling(self, data, dim = 2):
-    mds = MDS(n_components=dim, random_state=0, dissimilarity='precomputed')  
-    return mds.fit_transform(data)
+  def multi_dim_scaling(self, euclidean_data, n_components=2):
+    mds = MDS(n_components=n_components, dissimilarity='precomputed', random_state=42)
+    return mds.fit_transform(euclidean_data)
   
   def calculate_snake_distance(self, head, body):
     return np.array([np.sum(np.abs(np.array(head) - np.array(segment))) for segment in body])
@@ -509,22 +509,29 @@ class Data:
 
     returns dict of snake_id to float score
     '''
-
-    # Gets scores from both algorithms
+    # Get scores from all scoring methods
     snake_flood_score = self.get_flood_score(game_state)
     snake_length_score = self.get_length_score(game_state)
+    snake_area_score = self.get_area_control_score(game_state)
 
-    # Combines scores together
+    # Combines scores together with weights
     snake_to_score = defaultdict(float)
-
+    
+    # Weight factors for different scoring components
+    FLOOD_WEIGHT = 0.3
+    LENGTH_WEIGHT = 0.3
+    AREA_WEIGHT = 0.4  # Giving slightly more weight to area control
+    
     for k, v in snake_flood_score.items():
-      snake_to_score[k] += v
-
+        snake_to_score[k] += v * FLOOD_WEIGHT
+    
     for k, v in snake_length_score.items():
-      snake_to_score[k] += v
+        snake_to_score[k] += v * LENGTH_WEIGHT
+        
+    for k, v in snake_area_score.items():
+        snake_to_score[k] += v * AREA_WEIGHT
 
     return snake_to_score
-
 
   def get_flood_score(self, game_state: dict) -> dict:
       '''
@@ -614,3 +621,66 @@ class Data:
           snake_to_score[i] /= total
 
       return snake_to_score
+
+  def get_area_control_score(self, game_state: dict) -> dict:
+    """
+    Calculates area control score for each snake based on the "shadow" concept.
+    A snake controls the area that extends from its body away from the opponent's body.
+    
+    Args:
+        game_state: full json dict of game data
+    
+    Returns:
+        dict: Map of snake IDs to their area control scores
+    """
+    board_size = 11
+    board = np.zeros((board_size, board_size), dtype=int)
+    snake_scores = defaultdict(float)
+    
+    # Get snakes
+    snakes = game_state.get('board', {}).get('snakes', [])
+    if len(snakes) != 2:  # We need exactly 2 snakes for this calculation
+        return snake_scores
+    
+    snake1, snake2 = snakes[0], snakes[1]
+    
+    # Mark snake bodies on the board
+    # 1 for snake1, 2 for snake2
+    for i, snake in enumerate([snake1, snake2], 1):
+        for segment in snake['body']:
+            x, y = segment['x'], segment['y']
+            if 0 <= x < board_size and 0 <= y < board_size:
+                board[y, x] = i
+    
+    # Calculate area control for each snake
+    for y in range(board_size):
+        for x in range(board_size):
+            if board[y, x] == 0:  # Empty space
+                # Calculate distances to nearest body segments of each snake
+                min_dist_snake1 = float('inf')
+                min_dist_snake2 = float('inf')
+                
+                # Check distance to snake1's body
+                for segment in snake1['body']:
+                    dist = abs(x - segment['x']) + abs(y - segment['y'])  # Manhattan distance
+                    min_dist_snake1 = min(min_dist_snake1, dist)
+                
+                # Check distance to snake2's body
+                for segment in snake2['body']:
+                    dist = abs(x - segment['x']) + abs(y - segment['y'])
+                    min_dist_snake2 = min(min_dist_snake2, dist)
+                
+                # Assign control based on relative distances
+                if min_dist_snake1 < min_dist_snake2:
+                    snake_scores[snake1['id']] += 1
+                elif min_dist_snake2 < min_dist_snake1:
+                    snake_scores[snake2['id']] += 1
+                # If equal distances, no points awarded
+    
+    # Normalize scores
+    total_score = sum(snake_scores.values())
+    if total_score > 0:
+        for snake_id in snake_scores:
+            snake_scores[snake_id] /= total_score
+    
+    return snake_scores

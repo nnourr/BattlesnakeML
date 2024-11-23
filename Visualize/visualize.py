@@ -69,22 +69,55 @@ class Visualize:
 
     def plot_mds(self, path=None, show=False):
         euclidean_data = self.data_instance.calculate_euclidean_distance()
-        mds = self.data_instance.multi_dim_scaling(euclidean_data)
+        mds = self.data_instance.multi_dim_scaling(euclidean_data, n_components=3)  
         moves = self.data_instance.moves
 
         fig = plt.figure(figsize=(15, 15))
-        ax = fig.add_subplot()
-        plt.title('MDS Representation of Battlesnake Moves')
-        unique_classes = list(set(label['Move'] for label in moves))
-        colors = plt.cm.get_cmap('tab10', len(unique_classes))
-        class_colors = {cls: colors(i) for i, cls in enumerate(unique_classes)}
+        ax = fig.add_subplot(111, projection='3d')  
+        plt.title('3D MDS Representation of Relative Battlesnake Moves')
+        
+        move_to_class = {
+            'up': 'ahead',
+            'down': 'ahead',
+            'left': 'ahead',
+            'right': 'ahead'
+        }
+        
+        for i in range(len(moves)):
+            if i > 0:  
+                current_move = moves[i]['Move']
+                prev_move = moves[i-1]['Move']
+                
+                if current_move == prev_move:
+                    move_to_class[current_move] = 'ahead'
+                elif (prev_move == 'up' and current_move == 'left') or \
+                     (prev_move == 'left' and current_move == 'down') or \
+                     (prev_move == 'down' and current_move == 'right') or \
+                     (prev_move == 'right' and current_move == 'up'):
+                    move_to_class[current_move] = 'turn_left'
+                else:
+                    move_to_class[current_move] = 'turn_right'
+
+        class_colors = {
+            'ahead': 'blue',
+            'turn_left': 'green',
+            'turn_right': 'red'
+        }
+
         for i, label in enumerate(moves):
-            cls = label['Move']
-            ax.scatter(mds[i, 0], mds[i, 1], color=class_colors[cls], s=10)
-            # ax.annotate(str(i), (mds[i, 0], mds[i, 1]), textcoords="offset points", xytext=(5, 5), ha='center', color='red')
-        for cls, color in class_colors.items():
-            ax.scatter([], [], color=color, label=cls)
-        ax.legend(title="Classes")
+            move = label['Move']
+            relative_move = move_to_class[move]
+            color = class_colors[relative_move]
+            ax.scatter(mds[i, 0], mds[i, 1], mds[i, 2], color=color, s=50)
+
+        for move_class, color in class_colors.items():
+            ax.scatter([], [], [], color=color, label=move_class)
+        
+        ax.set_xlabel('MDS Component 1')
+        ax.set_ylabel('MDS Component 2')
+        ax.set_zlabel('MDS Component 3')
+        ax.legend(title="Relative Moves")
+        
         if show:
             plt.show()
         if path is not None:
@@ -104,7 +137,7 @@ class Visualize:
         Returns:
         - None
         """
-        X = self.data_instance.flattened_frames[:-1]  # Last frame has no move
+        X = self.data_instance.flattened_frames[:-1]  
         y = self.data_instance.encoded_moves
 
         print(X[0])

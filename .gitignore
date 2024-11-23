@@ -2,3 +2,4 @@
 .win_venv
 **.pyc
 lee_venv
+model_pipeline

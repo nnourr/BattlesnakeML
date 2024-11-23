@@ -17,7 +17,13 @@ import matplotlib
 
 class Data:
   def __init__(self, data_root):
-    self.action_map = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
+    self.action_map = {'ahead': 0, 'turn_left': 1, 'turn_right': 2}
+    self.direction_vectors = {
+      'up': (0, 1),
+      'down': (0, -1),
+      'left': (-1, 0),
+      'right': (1, 0)
+    }
     self.data_root = data_root
     
     self.frames = self.__read_frames()
@@ -27,8 +33,8 @@ class Data:
     self.flattened_frames = self.__flatten_frames()
     self.encoded_moves = self.__encode_moves()
     
-    # self.lda_2 = self.n_lda(2)
-    self.lda_3 = self.n_lda(3)
+    self.lda_2 = self.n_lda(2)
+    # self.lda_3 = self.n_lda(3)
   
   def lda_transform(self, X):
     X_scaled = self.scaler.transform(X)
@@ -98,7 +104,7 @@ class Data:
             continue  # Skip if the player's snake is not found
 
         if end_frame:
-            self.__new_indexes.append(len(preprocessed))
+            self.__new_indexes.append(len(preprocessed)+1)
 
         # Calculate the distance between the player's snake head and the enemy's snake head
         player_head = player_body[0]
@@ -134,49 +140,89 @@ class Data:
   
   def __extract_moves(self):
     moves = []
-
-    # Initialize previous head positions for the given snakeID
-    previous_position = ''
-
+    end_frames = [index - 1 for index in self.__new_indexes[1:]]  # Get the last frame of each game except the final game
+    
+    # Need at least two body segments to determine direction
     for i, turn_data in enumerate(self.preprocessed):
-        player_snake = turn_data['player_body']
-
-        if (i in self.__new_indexes):
-           previous_position = ''
-
-        # Get the current snake's head position
-        head_position = player_snake[0]
-
-        if previous_position == '':
-            # Initialize with the first turn's position
-            previous_position = head_position
-            continue
-
-        # Determine the move based on the change in position
-        current_position = head_position
-
-        move = None
-        if current_position[0] > previous_position[0]:
-            move = "right"
-        elif current_position[0] < previous_position[0]:
-            move = "left"
-        elif current_position[1] < previous_position[1]:
-            move = "down"
-        elif current_position[1] > previous_position[1]:
-            move = "up"
-
-        # Store the move along with the turn number
-        moves.append({
+      # Skip if this is an end frame
+      if i in end_frames:
+        continue
+            
+      player_snake = turn_data['player_body']
+      if len(player_snake) < 2:
+        continue
+            
+      head = player_snake[0]
+      neck = player_snake[1]
+        
+      # Get next frame's head position if available
+      if i + 1 < len(self.preprocessed) and i + 1 not in self.__new_indexes:
+        next_head = self.preprocessed[i + 1]['player_body'][0]
+            
+        # For first frame of each game, determine initial direction from first move
+        if i in self.__new_indexes:
+          # Calculate movement vector
+          dx = next_head[0] - head[0]
+          dy = next_head[1] - head[1]
+                
+          # First determine which direction the snake actually moved
+          next_direction = None
+          for direction, vector in self.direction_vectors.items():
+              if vector == (dx, dy):
+                  next_direction = direction
+                  break
+                
+          # Set initial direction based on the move:
+          # If snake moves right -> was facing right
+          # If snake moves left -> was facing left
+          # If snake moves up -> was facing up
+          # If snake moves down -> was facing down
+          current_direction = next_direction if next_direction else 'right'
+        else:
+          # Normal case - determine current and next directions
+          current_direction = self.__get_current_direction(head, neck)
+          next_direction = self.__get_current_direction(next_head, head)
+            
+        if current_direction and next_direction:
+          relative_move = self.__get_relative_move(current_direction, next_direction)
+          moves.append({
             "Turn": i,
-            "Move": move
-        })
+            "Move": relative_move
+          })
 
-        # Update previous position
-        previous_position = current_position
-
-    for i, index in enumerate(self.__new_indexes):
-        self.preprocessed.pop(index - (i + 1))
+    # Remove end frames from preprocessed data
+    for i, index in enumerate(end_frames):
+      self.preprocessed.pop(index - i)
+    
     return moves
+  
+  def __get_current_direction(self, head, neck):
+    """Determine current direction based on head and neck positions"""
+    dx = head[0] - neck[0]
+    dy = head[1] - neck[1]
+    for direction, vector in self.direction_vectors.items():
+      if vector == (dx, dy):
+        return direction
+    return None
+
+  def __get_relative_move(self, current_direction, next_direction):
+    """Convert absolute direction change to relative move"""
+    if current_direction == next_direction:
+      return 'ahead'
+        
+    # Define what directions are to the left/right of each direction
+    relative_directions = {
+      'up': {'left': 'left', 'right': 'right'},
+      'right': {'left': 'up', 'right': 'down'},
+      'down': {'left': 'right', 'right': 'left'},
+      'left': {'left': 'down', 'right': 'up'}
+    }
+    
+    if next_direction == relative_directions[current_direction]['left']:
+      return 'turn_left'
+    elif next_direction == relative_directions[current_direction]['right']:
+      return 'turn_right'
+    return 'ahead'  # Default to ahead if something unexpected happens
   
   def __encode_moves(self):
     return np.array([self.action_map[move['Move']] for move in self.moves])
@@ -211,8 +257,8 @@ class Data:
     current_size = len(array)
     
     if current_size >= target_size:
-        # Truncate if the array is larger than or equal to the target size
-        return array[:target_size]
+      # Truncate if the array is larger than or equal to the target size
+      return array[:target_size]
     
     # Calculate the total amount of padding needed
     total_pad = target_size - current_size
@@ -225,9 +271,9 @@ class Data:
 
     # Adjust padding if the array is smaller than the required padding
     while len(left) < left_pad:
-        left = np.concatenate((left, -np.flip(array[:min(left_pad - len(left), current_size)])))
+      left = np.concatenate((left, -np.flip(array[:min(left_pad - len(left), current_size)])))
     while len(right) < right_pad:
-        right = np.concatenate((right, -np.flip(array[-min(right_pad - len(right), current_size):])))
+      right = np.concatenate((right, -np.flip(array[-min(right_pad - len(right), current_size):])))
 
     # Truncate any extra padding to ensure exact match
     left = left[-left_pad:]
@@ -254,8 +300,8 @@ class Data:
 
     # Function to pad arrays to the desired length
     def pad_to_length(arr, length):
-        # return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
-        return self.anti_symmetric_pad(arr, length)
+      # return np.pad(arr, (0, max(0, length - len(arr))), mode='constant')
+      return self.anti_symmetric_pad(arr, length)
 
     # Pad each feature array to the desired length
     # turn_padded = pad_to_length(turn, desired_length)
@@ -279,17 +325,17 @@ class Data:
 
     # Mark snake body positions as -1
     for segment in frame['player_body']:
-        if segment[0] >= 11 or segment[1] >= 11: continue
-        grid[segment[0], segment[1]] = -1
+      if segment[0] >= 11 or segment[1] >= 11: continue
+      grid[segment[0], segment[1]] = -1
     
     # Mark opponent snakes
     for segment in frame['enemy_body']:
-        if segment[0] >= 11 or segment[1] >= 11: continue
-        grid[segment[0], segment[1]] = -2
+      if segment[0] >= 11 or segment[1] >= 11: continue
+      grid[segment[0], segment[1]] = -2
 
     # Mark food position as 1
     for food in frame['food_positions']:
-        grid[food[0], food[1]] = 1
+      grid[food[0], food[1]] = 1
 
     # Flatten the grid
     return grid.flatten()
@@ -301,15 +347,15 @@ class Data:
 
     # Mark snake body positions as -1
     for segment in frame['player_body']:
-        grid[segment[0], segment[1]] = -1
+      grid[segment[0], segment[1]] = -1
     
     # Mark opponent snakes
     for segment in frame['enemy_body']:
-        grid[segment[0], segment[1]] = -2
+      grid[segment[0], segment[1]] = -2
 
     # Mark food position as 1
     for food in frame['food_positions']:
-        grid[food[0], food[1]] = 1
+      grid[food[0], food[1]] = 1
 
     # Flatten the grid
     return np.append(grid.flatten(), i)
@@ -321,15 +367,15 @@ class Data:
 
     # Mark snake body positions as -1
     for segment in frame['player_body']:
-        grid[segment[0], segment[1]] = -1
+      grid[segment[0], segment[1]] = -1
     
     # Mark opponent snakes
     for segment in frame['enemy_body']:
-        grid[segment[0], segment[1]] = -2
+      grid[segment[0], segment[1]] = -2
 
     # Mark food position as 1
     for food in frame['food_positions']:
-        grid[food[0], food[1]] = 1
+      grid[food[0], food[1]] = 1
 
     # Flatten the grid
     return np.append(grid.flatten(), [len(frame['player_body']), len(frame['enemy_body'])*2, len(frame['food_positions'])*-1], axis=0)
@@ -363,10 +409,10 @@ class Data:
     distances = []
 
     for segment in body:
-        x, y = segment
-        distance_to_top = board_size - y
-        distance_to_right = board_size - x
-        distances.append([distance_to_top, distance_to_right])
+      x, y = segment
+      distance_to_top = board_size - y
+      distance_to_right = board_size - x
+      distances.append([distance_to_top, distance_to_right])
 
     return np.array(distances)
   
@@ -374,52 +420,86 @@ class Data:
     return np.array([[np.sum(np.abs(np.array(segment) - np.array(food))) for food in foods] for segment in body])
   
   def calculate_valid_moves(self, player, opp, board_size=11):
-    mask = [1, 1, 1, 1]  # Initialize mask for [up, down, left, right]
-
-    head_x, head_y = player[0]  # Get the head position of the player's snake
-
-    opp_x, opp_y = opp[0]  # Get the head position of the opponent snake
-
+    """Calculate valid moves relative to snake's current direction.
+    Returns a mask for [ahead, turn_left, turn_right]
+    """
+    if len(player) < 2:
+      return [1, 1, 1]  # Allow all moves if we don't have enough info
+        
+    head = player[0]
+    neck = player[1]
+    
+    # Get current direction
+    current_direction = self.__get_current_direction(head, neck)
+    if not current_direction:
+      return [1, 1, 1]  # Allow all moves if direction is invalid
+        
+    # Define what coordinates would be reached by each relative move
+    relative_coords = {
+      'up': {
+        'ahead': (head[0], head[1] + 1),
+        'turn_left': (head[0] - 1, head[1]),
+        'turn_right': (head[0] + 1, head[1])
+      },
+      'right': {
+        'ahead': (head[0] + 1, head[1]),
+        'turn_left': (head[0], head[1] + 1),
+        'turn_right': (head[0], head[1] - 1)
+      },
+      'down': {
+        'ahead': (head[0], head[1] - 1),
+        'turn_left': (head[0] + 1, head[1]),
+        'turn_right': (head[0] - 1, head[1])
+      },
+      'left': {
+        'ahead': (head[0] - 1, head[1]),
+        'turn_left': (head[0], head[1] - 1),
+        'turn_right': (head[0], head[1] + 1)
+      }
+    }
+    
+    # Get coordinates for each possible move based on current direction
+    possible_moves = relative_coords[current_direction]
+    
+    # Initialize mask for [ahead, turn_left, turn_right]
+    mask = [1, 1, 1]
+    
+    # Get opponent head for potential collision detection
+    opp_head = opp[0]
+    
     # Calculate potential moves for the opponent's head
     opponent_danger_zone = [
-        (opp_x, opp_y + 1),  # Up
-        (opp_x, opp_y - 1),  # Down
-        (opp_x - 1, opp_y),  # Left
-        (opp_x + 1, opp_y)   # Right
+      (opp_head[0], opp_head[1] + 1),  # Up
+      (opp_head[0], opp_head[1] - 1),  # Down
+      (opp_head[0] - 1, opp_head[1]),  # Left
+      (opp_head[0] + 1, opp_head[1])   # Right
     ]
-
+    
     # Filter out moves that are outside the board
     opponent_danger_zone = [
-        move for move in opponent_danger_zone 
-        if 0 <= move[0] < board_size and 0 <= move[1] < board_size
+      move for move in opponent_danger_zone 
+      if 0 <= move[0] < board_size and 0 <= move[1] < board_size
     ]
     
-    player_next_states = [
-        (head_x, head_y + 1),  # Up
-        (head_x, head_y - 1),  # Down
-        (head_x - 1, head_y),  # Left
-        (head_x + 1, head_y)   # Right
-    ]
-    
+    # Check if moves would result in collision with opponent's potential moves
+    player_next_states = [possible_moves['ahead'], possible_moves['turn_left'], possible_moves['turn_right']]
     avoid_head = bool(set(opponent_danger_zone) & set(player_next_states))
     
-
-    # Check up move
-    if head_y + 1 >= board_size or (head_x, head_y + 1) in player or (head_x, head_y + 1) in opp or ((head_x, head_y + 1) in opponent_danger_zone and avoid_head):
-        mask[0] = 0
-
-    # Check down move
-    if head_y - 1 < 0 or (head_x, head_y - 1) in player or (head_x, head_y - 1) in opp or ((head_x, head_y - 1) in opponent_danger_zone and avoid_head):
-        mask[1] = 0
-
-    # Check left move
-    if head_x - 1 < 0 or (head_x - 1, head_y) in player or (head_x - 1, head_y) in opp or ((head_x - 1, head_y) in opponent_danger_zone and avoid_head):
-        mask[2] = 0
-
-    # Check right move
-    if head_x + 1 >= board_size or (head_x + 1, head_y) in player or (head_x + 1, head_y) in opp or ((head_x + 1, head_y) in opponent_danger_zone and avoid_head):
-        mask[3] = 0
-
+    # Check each relative move
+    for i, (move_type, coords) in enumerate([
+      ('ahead', possible_moves['ahead']),
+      ('turn_left', possible_moves['turn_left']),
+      ('turn_right', possible_moves['turn_right'])
+    ]):
+      x, y = coords
+      # Check if move is invalid (wall collision, body collision, or dangerous head-to-head)
+      if (x < 0 or x >= board_size or  # Wall collision
+        y < 0 or y >= board_size or  # Wall collision
+        (x, y) in player or          # Self collision
+        (x, y) in opp or             # Opponent body collision
+        ((x, y) in opponent_danger_zone and avoid_head)):  # Dangerous head-to-head
+        mask[i] = 0
+    
     return mask
   
   def score_game_board(self, game_state: dict) -> dict:
@@ -438,10 +518,10 @@ class Data:
     snake_to_score = defaultdict(float)
 
     for k, v in snake_flood_score.items():
-        snake_to_score[k] += v
+      snake_to_score[k] += v
 
     for k, v in snake_length_score.items():
-        snake_to_score[k] += v
+      snake_to_score[k] += v
 
     return snake_to_score
 
@@ -534,4 +614,3 @@ class Data:
           snake_to_score[i] /= total
 
       return snake_to_score
-

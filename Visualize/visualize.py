@@ -17,13 +17,13 @@ class Visualize:
         lda = LinearDiscriminantAnalysis(n_components=2)
         X_r2 = lda.fit_transform(X_scaled, y)
         plt.figure(figsize=(15, 15))
-        target_names = ['up', 'down', 'left', 'right']
-        labels = [0, 1, 2, 3]
-        colors = ['blue', 'green', 'red', 'purple']
+        target_names = ['ahead', 'turn_left', 'turn_right']
+        labels = [0, 1, 2]
+        colors = ['blue', 'green', 'red']
         for color, label in zip(colors, labels):
             idx = y == label
             plt.scatter(X_r2[idx, 0], X_r2[idx, 1], color=color, label=target_names[label], alpha=0.7)
-        plt.title("LDA Representation of Battlesnake Moves")
+        plt.title("LDA Representation of Relative Battlesnake Moves")
         plt.xlabel("LDA Component 1")
         plt.ylabel("LDA Component 2")
         plt.legend(loc="best")
@@ -43,30 +43,29 @@ class Visualize:
 
         scaler = MinMaxScaler()
         X_scaled = scaler.fit_transform(X)
-        lda = LinearDiscriminantAnalysis(n_components=3)
-        X_r3 = lda.fit_transform(X_scaled, y)
+        lda = LinearDiscriminantAnalysis(n_components=2)  
+        X_r2 = lda.fit_transform(X_scaled, y)
         fig = plt.figure(figsize=(15, 15))
-        ax = fig.add_subplot(111, projection='3d')
-        target_names = ['up', 'down', 'left', 'right']
-        labels = [0, 1, 2, 3]
-        colors = ['blue', 'green', 'red', 'purple']
+        ax = fig.add_subplot(111)  
+        target_names = ['ahead', 'turn_left', 'turn_right']
+        labels = [0, 1, 2]
+        colors = ['blue', 'green', 'red']
         for color, label in zip(colors, labels):
             idx = y == label
-            ax.scatter(X_r3[idx, 0], X_r3[idx, 1], X_r3[idx, 2], color=color, label=target_names[label], alpha=0.7)
-        ax.set_title("3D LDA Representation of Battlesnake Moves")
+            ax.scatter(X_r2[idx, 0], X_r2[idx, 1], color=color, label=target_names[label], alpha=0.7)
+        ax.set_title("2D LDA Representation of Relative Battlesnake Moves")
         ax.set_xlabel("LDA Component 1")
         ax.set_ylabel("LDA Component 2")
-        ax.set_zlabel("LDA Component 3")
         ax.legend(loc="best")
         if show:
             plt.show()
         if path is not None:
             plt.savefig(path, format='png', bbox_inches='tight', dpi=400)
         plt.clf()
-        score = silhouette_score(X_r3, y)
-        print(f'Silhouette Score after 3D LDA: {score}')
-        db_index = davies_bouldin_score(X_r3, y)
-        print(f'Davies-Bouldin Index after 3D LDA: {db_index}')
+        score = silhouette_score(X_r2, y)
+        print(f'Silhouette Score after 2D LDA: {score}')
+        db_index = davies_bouldin_score(X_r2, y)
+        print(f'Davies-Bouldin Index after 2D LDA: {db_index}')
 
     def plot_mds(self, path=None, show=False):
         euclidean_data = self.data_instance.calculate_euclidean_distance()

@@ -77,6 +77,7 @@ class BattlesnakePipeline(BaseEstimator, TransformerMixin):
           player_body = snake_body
           player_health = snake[to_case("health")]
           continue
+
         enemy_health = snake[to_case("health")]
         enemy_body = snake_body
         

@@ -73,9 +73,13 @@ class Data:
         # Initialize lists for player and enemy snakes
         player_body = None
         enemy_body = None
+        enemy_score = None
         player_health = None
+        player_score = None
         enemy_health = False
         end_frame = False
+
+        scores = self.score_game_board(game_state)
 
         for snake in snakes:
             if (snake['Death'] != None):
@@ -84,10 +88,11 @@ class Data:
             if snake["Author"] == author:
                 player_body = snake_body
                 player_health = snake["Health"]
-                player_health = snake["Health"]
+                player_score = scores[snake["ID"]]
             else:
                 enemy_body = snake_body
                 enemy_health = snake["Health"]
+                enemy_score = scores[snake["ID"]]
 
         if player_body is None:
             continue  # Skip if the player's snake is not found
@@ -105,8 +110,6 @@ class Data:
         wall_distance = self.calculate_wall_distance(player_body)
         food_distance = self.calculate_food_distance(player_body, food)
         valid_spaces = self.calculate_valid_moves(player_body, enemy_body)
-        
-        score = self.score_game_board(game_state)
 
         # Flatten features into a vector (simple representation)
         features = {
@@ -122,7 +125,8 @@ class Data:
             "food_distance": food_distance,
             "wall_distance": wall_distance,
             "valid_spaces": valid_spaces,
-            "score": score
+            "player_score": player_score,
+            "enemy_score": enemy_score
         }
         preprocessed.append(features)
 
@@ -191,7 +195,7 @@ class Data:
   def flatten_frame_i_to_list(self, frame):
 
     # add length to arrays
-    return np.append(self.flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], frame['score'], *self.flatten_frame_to_board(frame)], axis=0)
+    return np.append(self.flatten_frame_to_list(frame), [len(frame["player_body"]), len(frame["enemy_body"]), len(frame["food_positions"]), frame["health"], frame['player_score'], frame['enemy_score'], *self.flatten_frame_to_board(frame)], axis=0)
   
   def anti_symmetric_pad(self, array, target_size):
     """
@@ -432,90 +436,92 @@ class Data:
     return snake_to_score
 
 
-def get_flood_score(self, game_state: dict) -> dict:
-    '''
-    parameter:
-        game state: full json dict of game data
+  def get_flood_score(self, game_state: dict) -> dict:
+      '''
+      parameter:
+          game state: full json dict of game data
 
-    returns map of snake IDs to a float score (based on floodfill)
-    '''
+      returns map of snake IDs to a float score (based on floodfill)
+      '''
 
-    # Flood Fill Algo?
-    W = 11
-    H = W
+      # Flood Fill Algo?
+      W = 11
+      H = W
 
-    board = [[""] * H] * W
+      board = [[""] * H] * W
 
-    q = list()
+      q = list()
 
-    for snake in game_state['Snakes']:
-        # Adds head to queue
-        q.append(snake['Body'][0] | {'ID': snake['ID']})
+      def is_valid(x, y):
+          if x < 0 or W <= x:
+              return False
+          if y < 0 or H <= y:
+              return False
+          if board[x][y] != '':
+              return False
+          return True
+      
+      for snake in game_state['Snakes']:
+          # Adds head to queue
+          q.append(snake['Body'][0] | {'ID': snake['ID']})
 
-        # Marks area where snake sits as controlled
-        for b in snake['Body']:
-            board[b['X']][b['Y']] = snake['ID']
+          # Marks area where snake sits as controlled
+          for b in snake['Body']:
+              if (not is_valid(b['X'], b['Y'])): continue
+              board[b['X']][b['Y']] = snake['ID']
 
-    def is_valid(x, y):
-        if x < 0 or W <= x:
-            return False
-        if y < 0 or H <= y:
-            return False
-        if board[x][y] != '':
-            return False
-        return True
+      # Loops through snake moves until board filled
+      while q:
+          cur_coord = q.pop(0)
+          x = cur_coord['X']
+          y = cur_coord['Y']
+          id = cur_coord['ID']
 
-    # Loops through snake moves until board filled
-    while q:
-        cur_coord = q.pop(0)
-        x = cur_coord['X']
-        y = cur_coord['Y']
-        id = cur_coord['ID']
+          if (not is_valid(x, y)): continue
+          board[x][y] = id
 
-        board[x][y] = id
+          if is_valid(x + 1, y):
+              q.append({'ID': id, 'X': x + 1, 'Y': y})
 
-        if is_valid(x + 1, y):
-            q.append({'ID': id, 'X': x + 1, 'Y': y})
+          if is_valid(x - 1, y):
+              q.append({'ID': id, 'X': x - 1, 'Y': y})
 
-        if is_valid(x - 1, y):
-            q.append({'ID': id, 'X': x - 1, 'Y': y})
+          if is_valid(x, y + 1):
+              q.append({'ID': id, 'X': x, 'Y': y + 1})
 
-        if is_valid(x, y + 1):
-            q.append({'ID': id, 'X': x, 'Y': y + 1})
+          if is_valid(x, y - 1):
+              q.append({'ID': id, 'X': x, 'Y': y - 1})
 
-        if is_valid(x, y - 1):
-            q.append({'ID': id, 'X': x, 'Y': y - 1})
+      snake_to_score = defaultdict(float)
+      for i in board:
+          for j in i:
+              if j == '':
+                  continue
+              snake_to_score[j] += 1
 
-    snake_to_score = defaultdict(float)
-    for i in board:
-        for j in i:
-            if j == '':
-                continue
-            snake_to_score[j] += 1
+      total = sum(snake_to_score.values())
+      for i in snake_to_score:
+          snake_to_score[i] /= total
 
-    total = sum(snake_to_score.values())
-    for i in snake_to_score:
-        snake_to_score[i] /= total
-
-    return snake_to_score
+      return snake_to_score
 
 
-def get_length_score(self, game_state: dict) -> dict:
-    '''
-    parameter:
-        game state: full json dict of game data
+  def get_length_score(self, game_state: dict) -> dict:
+      '''
+      parameter:
+          game state: full json dict of game data
 
-    returns map of snake IDs to a float score (based on length)
-    '''
+      returns map of snake IDs to a float score (based on length)
+      '''
 
-    snake_to_score = defaultdict(float)
+      snake_to_score = defaultdict(float)
 
-    for snake in game_state['Snakes']:
-        snake_to_score[snake['ID']] = len(snake['Body'])
+      for snake in game_state['Snakes']:
+          snake_to_score[snake['ID']] = len(snake['Body'])
 
-    total = sum(snake_to_score.values())
-    for i in snake_to_score:
-        snake_to_score[i] /= total
+      total = sum(snake_to_score.values())
+      for i in snake_to_score:
+          snake_to_score[i] /= total
 
-    return snake_to_score
+      return snake_to_score
 

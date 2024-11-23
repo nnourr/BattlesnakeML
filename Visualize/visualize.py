@@ -82,7 +82,7 @@ class Visualize:
         for i, label in enumerate(moves):
             cls = label['Move']
             ax.scatter(mds[i, 0], mds[i, 1], color=class_colors[cls], s=10)
-            ax.annotate(str(i), (mds[i, 0], mds[i, 1]), textcoords="offset points", xytext=(5, 5), ha='center', color='red')
+            # ax.annotate(str(i), (mds[i, 0], mds[i, 1]), textcoords="offset points", xytext=(5, 5), ha='center', color='red')
         for cls, color in class_colors.items():
             ax.scatter([], [], color=color, label=cls)
         ax.legend(title="Classes")

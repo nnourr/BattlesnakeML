@@ -385,21 +385,31 @@ class Data:
         move for move in opponent_danger_zone 
         if 0 <= move[0] < board_size and 0 <= move[1] < board_size
     ]
+    
+    player_next_states = [
+        (head_x, head_y + 1),  # Up
+        (head_x, head_y - 1),  # Down
+        (head_x - 1, head_y),  # Left
+        (head_x + 1, head_y)   # Right
+    ]
+    
+    avoid_head = bool(set(opponent_danger_zone) & set(player_next_states))
+    
 
     # Check up move
-    if head_y + 1 >= board_size or (head_x, head_y + 1) in player or (head_x, head_y + 1) in opp or (head_x, head_y + 1) in opponent_danger_zone:
+    if head_y + 1 >= board_size or (head_x, head_y + 1) in player or (head_x, head_y + 1) in opp or ((head_x, head_y + 1) in opponent_danger_zone and avoid_head):
         mask[0] = 0
 
     # Check down move
-    if head_y - 1 < 0 or (head_x, head_y - 1) in player or (head_x, head_y - 1) in opp or (head_x, head_y - 1) in opponent_danger_zone:
+    if head_y - 1 < 0 or (head_x, head_y - 1) in player or (head_x, head_y - 1) in opp or ((head_x, head_y - 1) in opponent_danger_zone and avoid_head):
         mask[1] = 0
 
     # Check left move
-    if head_x - 1 < 0 or (head_x - 1, head_y) in player or (head_x - 1, head_y) in opp or (head_x - 1, head_y) in opponent_danger_zone:
+    if head_x - 1 < 0 or (head_x - 1, head_y) in player or (head_x - 1, head_y) in opp or ((head_x - 1, head_y) in opponent_danger_zone and avoid_head):
         mask[2] = 0
 
     # Check right move
-    if head_x + 1 >= board_size or (head_x + 1, head_y) in player or (head_x + 1, head_y) in opp or (head_x + 1, head_y) in opponent_danger_zone:
+    if head_x + 1 >= board_size or (head_x + 1, head_y) in player or (head_x + 1, head_y) in opp or ((head_x + 1, head_y) in opponent_danger_zone and avoid_head):
         mask[3] = 0
 
     return mask

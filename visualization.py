@@ -31,10 +31,10 @@ print(data_class.preprocessed[9])
 # Uncomment to show plots
 # visualizer.plot_lda(None, True)
 # data_class.plot_lda('./vis_out/LDA/LDA_scaled_5_health.png', False)
-visualizer.plot_lda(None, False)
+# visualizer.plot_lda(None, False)
 
 # data_class.plot_lda_3d('./vis_out/LDA/LDA_scaled_3d_3_health.png', False)
-visualizer.plot_lda_3d(None, False)
+visualizer.plot_lda_3d(None, True)
 
 # visualizer.plot_mds(None, True)
 # data_class.plot_mds('./vis_out/MDS_3d.png', False)

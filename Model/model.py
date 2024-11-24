@@ -42,9 +42,9 @@ class Model:
       # Define the model architecture
       model = Sequential()
       model.add(Input(shape=(3,)))  # Input shape is (3,) since each sample has 3 features
-      model.add(Dense(256, activation='relu'))
-      model.add(Dense(128, activation='relu'))
       model.add(Dense(164, activation='relu'))
+      model.add(Dense(128, activation='relu'))
+      model.add(Dense(256, activation='relu'))
       model.add(Dense(16, activation='relu'))
       model.add(Dense(4, activation='softmax'))  # Output layer
 

@@ -24,7 +24,7 @@ print(data_class.preprocessed[9])
 # Use the Visualize class for plotting
 # visualizer.plot_lda('./vis_out/LDA/LDA_2D.png', False)
 # visualizer.plot_lda_3d('./vis_out/LDA/LDA_3D.png', False)
-# visualizer.plot_mds('./vis_out/MDS/MDS_3D.png', False)
+visualizer.plot_mds('./vis_out/MDS/MDS_latest.png', False)
 
 # visualizer.plot_tsne(path='./vis_out/TSNE/TSNE_2D.png', show=False)
 
